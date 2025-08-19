@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>실시간 수업 모니터링 V2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .student-card video {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background-color: #000;
+            border-radius: 0.5rem;
+        }
+        .student-card {
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .card-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .feedback-section {
+            flex-grow: 1;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div id="app-container" class="w-full max-w-7xl mx-auto p-4 md:p-6">
+        
+        <!-- 역할 선택 화면 -->
+        <div id="role-selection-view" class="text-center bg-white p-8 rounded-2xl shadow-lg max-w-lg mx-auto mt-16">
+            <h1 class="text-3xl font-bold mb-2 text-gray-900">수업 모니터링 앱 V2</h1>
+            <p class="text-gray-600 mb-8">실시간 화면 공유 및 피드백 기능이 추가되었습니다.</p>
+            <div class="flex flex-col md:flex-row gap-4 justify-center">
+                <button id="teacher-btn" class="bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700 transition duration-300 shadow-md text-lg">👩‍🏫 선생님</button>
+                <button id="student-btn" class="bg-teal-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-teal-600 transition duration-300 shadow-md text-lg">🧑‍🎓 학생</button>
+            </div>
+        </div>
+
+        <!-- 선생님 화면 -->
+        <div id="teacher-view" class="hidden">
+            <div id="teacher-setup-section" class="bg-white p-6 rounded-2xl shadow-lg mb-6">
+                <div class="flex flex-wrap justify-between items-center">
+                    <h1 class="text-3xl font-bold text-gray-900">선생님 대시보드</h1>
+                    <button id="back-to-role-selection-teacher" class="text-indigo-600 hover:text-indigo-800 font-semibold">&larr; 역할 선택으로</button>
+                </div>
+                
+                <div id="classroom-management-section" class="mt-4">
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <input type="text" id="teacher-classroom-id-input" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" placeholder="기존 수업 ID 입력하여 재접속">
+                        <button id="rejoin-classroom-btn" class="bg-gray-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-700 transition shadow-md">재접속</button>
+                    </div>
+                    <div class="my-4 text-center text-gray-500">또는</div>
+                    <button id="create-classroom-btn" class="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700 transition shadow-md text-lg">새 수업 만들기</button>
+                </div>
+            </div>
+            
+            <div id="teacher-dashboard-section" class="hidden">
+                <div class="bg-white p-4 rounded-2xl shadow-lg mb-6 text-center">
+                     <p class="text-gray-600 mb-2">수업 ID (학생들에게 공유):</p>
+                    <div class="bg-gray-100 p-4 rounded-lg flex items-center justify-center gap-4">
+                        <span id="classroom-id-display" class="text-2xl md:text-4xl font-mono font-bold text-indigo-600"></span>
+                        <button id="copy-id-btn" class="bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300 transition">복사</button>
+                    </div>
+                    <p id="copy-message" class="text-green-600 h-4 mt-2 text-sm"></p>
+                </div>
+            </div>
+
+            <div id="student-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- 학생 카드 여기에 동적으로 추가됨 -->
+            </div>
+        </div>
+
+        <!-- 학생 화면 -->
+        <div id="student-view" class="hidden">
+            <div class="bg-white p-8 rounded-2xl shadow-lg max-w-2xl mx-auto mt-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h1 class="text-3xl font-bold text-gray-900">수업 참여하기</h1>
+                    <button id="back-to-role-selection-student" class="text-teal-500 hover:text-teal-700 font-semibold">&larr; 역할 선택으로</button>
+                </div>
+
+                <div id="join-form">
+                    <div id="rejoin-info" class="hidden mb-4 p-3 bg-teal-50 border border-teal-200 rounded-lg text-center">
+                        <p class="text-sm text-teal-800">이전 수업에 다시 참여하시겠어요?</p>
+                    </div>
+                    <div class="mb-4">
+                        <label for="classroom-id-input" class="block text-sm font-medium text-gray-700 mb-1">수업 ID</label>
+                        <input type="text" id="classroom-id-input" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" placeholder="선생님께 받은 ID">
+                    </div>
+                    <div class="mb-6">
+                        <label for="student-name-input" class="block text-sm font-medium text-gray-700 mb-1">이름</label>
+                        <input type="text" id="student-name-input" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" placeholder="자신의 이름">
+                    </div>
+                    <button id="join-classroom-btn" class="w-full bg-teal-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-teal-600 transition shadow-md text-lg">참여 및 화면 공유 시작</button>
+                    <p class="text-xs text-gray-500 mt-2 text-center">버튼을 누르면 화면 공유 권한을 요청하는 팝업이 나타납니다. '허용'을 선택해주세요.</p>
+                </div>
+
+                <div id="student-workspace" class="hidden">
+                    <h2 class="text-2xl font-bold mb-4">
+                        <span id="student-name-display" class="text-teal-600"></span>님, 환영합니다!
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- 텍스트 제출 영역 -->
+                        <div class="bg-gray-50 p-4 rounded-lg border">
+                            <h3 class="font-bold mb-2">아이디어/질문 제출하기</h3>
+                            <textarea id="submission-textarea" rows="5" class="w-full p-2 border rounded-md" placeholder="여기에 내용을 입력하세요..."></textarea>
+                            <button id="submit-text-btn" class="mt-2 w-full bg-blue-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-600 transition">제출하기</button>
+                        </div>
+                        <!-- 피드백 확인 영역 -->
+                        <div class="bg-gray-50 p-4 rounded-lg border">
+                            <h3 class="font-bold mb-2">선생님 피드백</h3>
+                            <div id="feedback-display" class="w-full h-40 p-2 border rounded-md bg-white overflow-y-auto">
+                                <p class="text-gray-500">아직 받은 피드백이 없습니다.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 맞춤형 알림 모달 -->
+    <div id="alert-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white p-6 rounded-lg shadow-xl text-center max-w-sm w-full">
+            <p id="alert-message" class="mb-4 text-gray-700"></p>
+            <button id="alert-close-btn" class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">확인</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, updateDoc, serverTimestamp, addDoc, getDocs, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- DOM 요소 ---
+        const roleSelectionView = document.getElementById('role-selection-view');
+        const teacherView = document.getElementById('teacher-view');
+        const studentView = document.getElementById('student-view');
+        const teacherBtn = document.getElementById('teacher-btn');
+        const studentBtn = document.getElementById('student-btn');
+        const backToRoleTeacher = document.getElementById('back-to-role-selection-teacher');
+        const backToRoleStudent = document.getElementById('back-to-role-selection-student');
+        
+        // 선생님 화면 요소
+        const teacherSetupSection = document.getElementById('teacher-setup-section');
+        const teacherDashboardSection = document.getElementById('teacher-dashboard-section');
+        const classroomManagementSection = document.getElementById('classroom-management-section');
+        const teacherClassroomIdInput = document.getElementById('teacher-classroom-id-input');
+        const rejoinClassroomBtn = document.getElementById('rejoin-classroom-btn');
+        const createClassroomBtn = document.getElementById('create-classroom-btn');
+        const classroomIdDisplay = document.getElementById('classroom-id-display');
+        const copyIdBtn = document.getElementById('copy-id-btn');
+        const copyMessage = document.getElementById('copy-message');
+        const studentGrid = document.getElementById('student-grid');
+
+        // 학생 화면 요소
+        const joinForm = document.getElementById('join-form');
+        const rejoinInfo = document.getElementById('rejoin-info');
+        const classroomIdInput = document.getElementById('classroom-id-input');
+        const studentNameInput = document.getElementById('student-name-input');
+        const joinClassroomBtn = document.getElementById('join-classroom-btn');
+        const studentWorkspace = document.getElementById('student-workspace');
+        const studentNameDisplay = document.getElementById('student-name-display');
+        const submissionTextarea = document.getElementById('submission-textarea');
+        const submitTextBtn = document.getElementById('submit-text-btn');
+        const feedbackDisplay = document.getElementById('feedback-display');
+
+        // 모달 요소
+        const alertModal = document.getElementById('alert-modal');
+        const alertMessage = document.getElementById('alert-message');
+        const alertCloseBtn = document.getElementById('alert-close-btn');
+
+        // --- Firebase 및 상태 변수 ---
+        let db, auth, userId, appId;
+        const peerConnections = {}; 
+        const unsubscribes = {};
+        let currentClassroomId = null;
+        let localStream = null;
+
+        // --- Firebase 초기화 및 인증 ---
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        auth = getAuth(app);
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+            } else {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (error) { console.error("Authentication failed:", error); }
+            }
+        });
+
+        // --- UI 전환 및 알림 로직 ---
+        function showView(view) {
+            roleSelectionView.classList.add('hidden');
+            teacherView.classList.add('hidden');
+            studentView.classList.add('hidden');
+            view.classList.remove('hidden');
+        }
+
+        function showCustomAlert(message) {
+            alertMessage.textContent = message;
+            alertModal.classList.remove('hidden');
+        }
+
+        alertCloseBtn.addEventListener('click', () => alertModal.classList.add('hidden'));
+
+        async function cleanup() {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            Object.values(peerConnections).forEach(pc => pc.close());
+            for (const id in peerConnections) delete peerConnections[id];
+            Object.values(unsubscribes).forEach(unsub => unsub());
+            for (const id in unsubscribes) delete unsubscribes[id];
+            
+            studentGrid.innerHTML = '';
+            currentClassroomId = null;
+        }
+
+        teacherBtn.addEventListener('click', () => showView(teacherView));
+        studentBtn.addEventListener('click', () => {
+            showView(studentView);
+            checkStudentRejoin();
+        });
+        
+        backToRoleTeacher.addEventListener('click', async () => {
+            await cleanup();
+            teacherSetupSection.classList.remove('hidden');
+            teacherDashboardSection.classList.add('hidden');
+            showView(roleSelectionView);
+        });
+        
+        backToRoleStudent.addEventListener('click', async () => {
+            if (currentClassroomId && userId) {
+                await deleteStudentDocumentAndSubcollections(currentClassroomId, userId);
+            }
+            await cleanup();
+            localStorage.removeItem('studentSession');
+            joinForm.classList.remove('hidden');
+            studentWorkspace.classList.add('hidden');
+            showView(roleSelectionView);
+        });
+        
+        // --- WebRTC 설정 ---
+        const rtcConfig = {
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        };
+
+        // --- 선생님 로직 ---
+        function startTeacherSession(classroomId) {
+            currentClassroomId = classroomId;
+            classroomIdDisplay.textContent = classroomId;
+            teacherSetupSection.classList.add('hidden');
+            teacherDashboardSection.classList.remove('hidden');
+            listenToClassroom(classroomId);
+        }
+
+        createClassroomBtn.addEventListener('click', () => {
+            const newClassroomId = Math.floor(100000 + Math.random() * 900000).toString();
+            startTeacherSession(newClassroomId);
+        });
+
+        rejoinClassroomBtn.addEventListener('click', () => {
+            const classroomId = teacherClassroomIdInput.value.trim();
+            if (classroomId) {
+                startTeacherSession(classroomId);
+            } else {
+                showCustomAlert('수업 ID를 입력해주세요.');
+            }
+        });
+        
+        copyIdBtn.addEventListener('click', () => {
+             const textToCopy = classroomIdDisplay.textContent;
+             const textArea = document.createElement('textarea');
+             textArea.value = textToCopy;
+             document.body.appendChild(textArea);
+             textArea.select();
+             try {
+                 document.execCommand('copy');
+                 copyMessage.textContent = '복사되었습니다!';
+                 setTimeout(() => { copyMessage.textContent = ''; }, 2000);
+             } catch (err) { console.error('복사 실패:', err); }
+             document.body.removeChild(textArea);
+        });
+
+        function listenToClassroom(classroomId) {
+            const classroomRef = collection(db, `/artifacts/${appId}/public/data/classrooms/${classroomId}/students`);
+            unsubscribes['classroom'] = onSnapshot(classroomRef, (snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    const studentId = change.doc.id;
+                    const studentData = change.doc.data();
+
+                    if (change.type === 'added') {
+                        addStudentCard(studentId, studentData);
+                        if(studentData.isSharingScreen && studentData.offer) {
+                           setupPeerConnectionForStudent(studentId, studentData);
+                        }
+                    }
+                    if (change.type === 'modified') {
+                        updateStudentCard(studentId, studentData);
+                        if(studentData.isSharingScreen && !peerConnections[studentId] && studentData.offer) {
+                            setupPeerConnectionForStudent(studentId, studentData);
+                        }
+                    }
+                    if (change.type === 'removed') {
+                        document.getElementById(`student-card-${studentId}`)?.remove();
+                        peerConnections[studentId]?.close();
+                        delete peerConnections[studentId];
+                        unsubscribes[`candidates_${studentId}`]?.();
+                    }
+                });
+            });
+        }
+        
+        async function setupPeerConnectionForStudent(studentId, studentData) {
+            if (peerConnections[studentId]) return;
+            
+            const pc = new RTCPeerConnection(rtcConfig);
+            peerConnections[studentId] = pc;
+            
+            const studentVideo = document.getElementById(`video-${studentId}`);
+            const connectionStatusEl = document.getElementById(`connection-status-${studentId}`);
+
+            pc.oniceconnectionstatechange = () => {
+                if(connectionStatusEl) connectionStatusEl.textContent = pc.iceConnectionState;
+            };
+
+            pc.ontrack = event => {
+                if (studentVideo && studentVideo.srcObject !== event.streams[0]) {
+                    studentVideo.srcObject = event.streams[0];
+                }
+            };
+
+            const studentRef = doc(db, `/artifacts/${appId}/public/data/classrooms/${currentClassroomId}/students/${studentId}`);
+            
+            const studentCandidatesRef = collection(studentRef, 'studentCandidates');
+            unsubscribes[`candidates_${studentId}`] = onSnapshot(studentCandidatesRef, (snapshot) => {
+                snapshot.docChanges().forEach(async (change) => {
+                    if (change.type === 'added') {
+                        try {
+                            await pc.addIceCandidate(new RTCIceCandidate(change.doc.data()));
+                        } catch (e) {
+                            console.error('Error adding received ICE candidate', e);
+                        }
+                    }
+                });
+            });
+
+            await pc.setRemoteDescription(new RTCSessionDescription(studentData.offer));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            await updateDoc(studentRef, { answer: { type: answer.type, sdp: answer.sdp } });
+            
+            const teacherCandidatesRef = collection(studentRef, 'teacherCandidates');
+            pc.onicecandidate = event => {
+                if (event.candidate) addDoc(teacherCandidatesRef, event.candidate.toJSON());
+            };
+        }
+
+        function addStudentCard(studentId, studentData) {
+            if (document.getElementById(`student-card-${studentId}`)) return;
+            const card = document.createElement('div');
+            card.id = `student-card-${studentId}`;
+            card.className = "student-card bg-white p-4 rounded-xl shadow-md";
+            card.innerHTML = `
+                <h3 class="text-xl font-bold mb-2">${studentData.name}</h3>
+                <div class="relative bg-black rounded-md aspect-video">
+                    <video id="video-${studentId}" autoplay playsinline muted class="w-full h-full object-cover"></video>
+                    <div id="no-video-${studentId}" class="absolute inset-0 text-white flex items-center justify-center">
+                        <p class="text-sm bg-black bg-opacity-50 px-2 py-1 rounded">화면 공유 없음</p>
+                    </div>
+                    <div id="connection-status-${studentId}" class="absolute top-2 right-2 text-white text-xs bg-black bg-opacity-50 px-2 py-1 rounded capitalize"></div>
+                </div>
+                <div class="card-content mt-2 border-t pt-2">
+                    <div class="feedback-section">
+                        <p class="text-sm font-semibold text-gray-600">학생 제출 내용:</p>
+                        <div id="submission-display-${studentId}" class="text-sm bg-gray-100 p-2 rounded h-20 overflow-y-auto my-1">내용 없음</div>
+                        <p class="text-sm font-semibold text-gray-600 mt-2">피드백 보내기:</p>
+                        <div class="flex gap-2 mt-1">
+                            <input type="text" id="feedback-input-${studentId}" class="w-full p-2 border rounded-md text-sm" placeholder="피드백 입력...">
+                            <button id="send-feedback-btn-${studentId}" class="bg-indigo-500 text-white px-3 rounded-md hover:bg-indigo-600 text-sm font-semibold">전송</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            studentGrid.appendChild(card);
+            
+            document.getElementById(`send-feedback-btn-${studentId}`).addEventListener('click', () => {
+                const feedbackInput = document.getElementById(`feedback-input-${studentId}`);
+                const feedbackText = feedbackInput.value;
+                if (feedbackText) {
+                    sendFeedback(currentClassroomId, studentId, feedbackText);
+                    feedbackInput.value = '';
+                }
+            });
+            updateStudentCard(studentId, studentData);
+        }
+        
+        function updateStudentCard(studentId, studentData) {
+            const submissionDisplay = document.getElementById(`submission-display-${studentId}`);
+            if (submissionDisplay && studentData.submission) {
+                submissionDisplay.textContent = studentData.submission.text;
+            }
+            const noVideoEl = document.getElementById(`no-video-${studentId}`);
+            if(noVideoEl) {
+                noVideoEl.style.display = studentData.isSharingScreen ? 'none' : 'flex';
+            }
+        }
+        
+        async function sendFeedback(classroomId, studentId, text) {
+            const studentRef = doc(db, `/artifacts/${appId}/public/data/classrooms/${classroomId}/students/${studentId}`);
+            await updateDoc(studentRef, { feedback: { text: text, timestamp: serverTimestamp() } });
+        }
+
+        // --- 학생 로직 ---
+        function checkStudentRejoin() {
+            const savedSession = localStorage.getItem('studentSession');
+            if (savedSession) {
+                const { classroomId, studentName } = JSON.parse(savedSession);
+                classroomIdInput.value = classroomId;
+                studentNameInput.value = studentName;
+                rejoinInfo.classList.remove('hidden');
+            }
+        }
+
+        async function deleteStudentDocumentAndSubcollections(classroomId, studentId) {
+            if (!classroomId || !studentId) return;
+            const studentRef = doc(db, `/artifacts/${appId}/public/data/classrooms/${classroomId}/students/${studentId}`);
+            const studentCandidatesRef = collection(studentRef, 'studentCandidates');
+            const teacherCandidatesRef = collection(studentRef, 'teacherCandidates');
+            
+            try {
+                const batch = writeBatch(db);
+                const scSnap = await getDocs(studentCandidatesRef);
+                scSnap.forEach(doc => batch.delete(doc.ref));
+                const tcSnap = await getDocs(teacherCandidatesRef);
+                tcSnap.forEach(doc => batch.delete(doc.ref));
+                batch.delete(studentRef);
+                await batch.commit();
+            } catch (e) {
+                console.error("Error cleaning up student data:", e);
+            }
+        }
+
+        joinClassroomBtn.addEventListener('click', async () => {
+            currentClassroomId = classroomIdInput.value.trim();
+            const currentStudentName = studentNameInput.value.trim();
+
+            if (!currentClassroomId || !currentStudentName || !userId) {
+                showCustomAlert('수업 ID와 이름을 모두 입력해주세요.');
+                return;
+            }
+            
+            localStorage.setItem('studentSession', JSON.stringify({ classroomId: currentClassroomId, studentName: currentStudentName }));
+            
+            await deleteStudentDocumentAndSubcollections(currentClassroomId, userId);
+
+            try {
+                localStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+            } catch (error) {
+                console.error("화면 공유 시작 실패:", error);
+                if (error.name === "NotAllowedError") {
+                    showCustomAlert("화면 공유 권한이 거부되었습니다. 텍스트 피드백 기능만으로 참여합니다.");
+                } else {
+                    showCustomAlert("화면 공유를 시작할 수 없습니다. 텍스트 피드백 기능만으로 참여합니다.");
+                }
+            }
+
+            joinForm.classList.add('hidden');
+            studentWorkspace.classList.remove('hidden');
+            studentNameDisplay.textContent = currentStudentName;
+            
+            await initializeStudent(currentStudentName);
+            listenForFeedback();
+        });
+        
+        async function initializeStudent(studentName) {
+            const studentRef = doc(db, `/artifacts/${appId}/public/data/classrooms/${currentClassroomId}/students/${userId}`);
+            
+            if (!localStream) {
+                await setDoc(studentRef, { 
+                    name: studentName, id: userId, joinedAt: serverTimestamp(), isSharingScreen: false
+                });
+                return;
+            }
+
+            const pc = new RTCPeerConnection(rtcConfig);
+            peerConnections['teacher'] = pc;
+            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+            const studentCandidatesRef = collection(studentRef, 'studentCandidates');
+            pc.onicecandidate = event => {
+                if (event.candidate) addDoc(studentCandidatesRef, event.candidate.toJSON());
+            };
+
+            unsubscribes['studentDoc'] = onSnapshot(studentRef, async (docSnapshot) => {
+                const data = docSnapshot.data();
+                if (data && data.answer && !pc.currentRemoteDescription) {
+                    try {
+                        await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+                    } catch (e) {
+                        console.error("Error setting remote description:", e);
+                    }
+                }
+            });
+
+            const teacherCandidatesRef = collection(studentRef, 'teacherCandidates');
+            unsubscribes['teacherCandidates'] = onSnapshot(teacherCandidatesRef, (snapshot) => {
+                snapshot.docChanges().forEach(async (change) => {
+                    if (change.type === 'added') {
+                        try {
+                            await pc.addIceCandidate(new RTCIceCandidate(change.doc.data()));
+                        } catch(e) {
+                            console.error("Error adding teacher's ICE candidate", e);
+                        }
+                    }
+                });
+            });
+
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+
+            await setDoc(studentRef, { 
+                name: studentName, id: userId, isSharingScreen: true,
+                offer: { type: offer.type, sdp: offer.sdp },
+                joinedAt: serverTimestamp() 
+            });
+        }
+
+        submitTextBtn.addEventListener('click', async () => {
+            const text = submissionTextarea.value;
+            if (!text) return;
+            const studentRef = doc(db, `/artifacts/${appId}/public/data/classrooms/${currentClassroomId}/students/${userId}`);
+            await updateDoc(studentRef, { submission: { text: text, timestamp: serverTimestamp() } });
+            submissionTextarea.value = '';
+        });
+
+        function listenForFeedback() {
+             const studentRef = doc(db, `/artifacts/${appId}/public/data/classrooms/${currentClassroomId}/students/${userId}`);
+             unsubscribes['feedback'] = onSnapshot(studentRef, (doc) => {
+                 const data = doc.data();
+                 if (data && data.feedback) {
+                     feedbackDisplay.innerHTML = `<p class="text-gray-800">${data.feedback.text}</p>`;
+                 }
+             });
+        }
+    </script>
+</body>
+</html>
